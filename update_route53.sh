@@ -1,25 +1,20 @@
 #!/bin/bash
 
-# (optional) You might need to set your PATH variable at the top here
-# depending on how you run this script
-#PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
 # Hosted Zone ID e.g. BJBK35SKMM9OE
-ZONEID="enter zone id here"
+ZONEID="XXXXXXXXXXXXX"
 
 # The CNAME you want to update e.g. hello.example.com
-RECORDSET="enter cname here"
+RECORDSET="xxx.xxxxxxxxxx.com"
 
-# More advanced options below
 # The Time-To-Live of this recordset
 TTL=300
-# Change this if you want
+# Comment to include date of the change
 COMMENT="Auto updating @ `date`"
-# Change to AAAA if using an IPv6 address
+# Record Type (Change to AAAA if using IPv6)
 TYPE="A"
 
-# Get the external IP address from OpenDNS (more reliable than other providers)
-IP=`dig +short myip.opendns.com @resolver1.opendns.com`
+# Get the external IP address from icanhazip.com (you can use any service you want)
+IP=`curl icanhazip.com`
 
 function valid_ip()
 {
@@ -39,7 +34,6 @@ function valid_ip()
 }
 
 # Get current dir
-# (from http://stackoverflow.com/a/246128/920350)
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LOGFILE="$DIR/update-route53.log"
 IPFILE="$DIR/update-route53.ip"
@@ -56,12 +50,12 @@ if [ ! -f "$IPFILE" ]
 fi
 
 if grep -Fxq "$IP" "$IPFILE"; then
-    # code if found
+    # if found
     echo "IP is still $IP. Exiting" >> "$LOGFILE"
     exit 0
 else
     echo "IP has changed to $IP" >> "$LOGFILE"
-    # Fill a temp file with valid JSON
+    # Fill a temp file with the valid JSON
     TMPFILE=$(mktemp /tmp/temporary-file.XXXXXXXX)
     cat > ${TMPFILE} << EOF
     {
@@ -84,15 +78,15 @@ else
     }
 EOF
 
-    # Update the Hosted Zone record
+    # Update the Hosted Zone record via AWS CLI
     aws route53 change-resource-record-sets \
         --hosted-zone-id $ZONEID \
         --change-batch file://"$TMPFILE" >> "$LOGFILE"
     echo "" >> "$LOGFILE"
 
-    # Clean up
+    # Get rid of the tmp file
     rm $TMPFILE
 fi
 
-# All Done - cache the IP address for next time
+# Finished updating the IP address - caching the IP address for next time
 echo "$IP" > "$IPFILE"
